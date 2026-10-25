@@ -7,6 +7,7 @@ never a listing's raw text treated as instructions (see planner.py's prompt).
 
 from __future__ import annotations
 
+from agent.audit import log_tool_call
 from data.load_data import (
     load_care_guidance,
     load_products,
@@ -50,6 +51,7 @@ def search_providers(service_path: str, max_price_usd: float | None = None) -> l
                 "caveats": row["notes"],
             }
         )
+    log_tool_call("search_providers", {"service_path": service_path, "max_price_usd": max_price_usd}, len(results))
     return results
 
 
@@ -92,6 +94,17 @@ def search_products(
                 "evidence": row["source_supported_claim"],
             }
         )
+    log_tool_call(
+        "search_products",
+        {
+            "service_path": service_path,
+            "phase": phase,
+            "budget_tier": budget_tier,
+            "brand": brand,
+            "product_type": product_type,
+        },
+        len(results),
+    )
     return results
 
 
@@ -116,4 +129,5 @@ def search_care_guidance(service_path: str, phase: str | None = None) -> list[di
                 "limits": row["limits_or_uncertainty"],
             }
         )
+    log_tool_call("search_care_guidance", {"service_path": service_path, "phase": phase}, len(results))
     return results

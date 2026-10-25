@@ -1,7 +1,7 @@
 """The single agent: stylist lookup, product lookup, care-guidance retrieval,
 and recording the user's plan so the other pages can read it.
 
-One agent, four focused tools, per project_brief.md ("Use one agent with
+One agent, five focused tools, per project_brief.md ("Use one agent with
 focused tools for stylist lookup, product lookup, and retrieval of care
 guidance. Add multiple agents only if the chosen workflow demonstrates a
 real need for them.").
@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
+from agent.audit import end_run, log_tool_call, start_run
 from agent.config import build_model
 from agent.pricing import summarize_usage
 from agent.tools_data import search_care_guidance, search_products, search_providers
@@ -51,6 +52,7 @@ def update_plan(ctx: RunContext[PlanState], field: str, value: str) -> str:
     if field not in PLAN_FIELDS:
         return f"Unknown field '{field}'. Valid fields: {', '.join(sorted(PLAN_FIELDS))}."
     setattr(ctx.deps, field, value)
+    log_tool_call("update_plan", {"field": field, "value": value}, None)
     return f"Recorded {field} = {value}."
 
 
@@ -70,6 +72,7 @@ def modify_plan_selection(ctx: RunContext[PlanState], selection_type: str, item_
         return f"Unknown action '{action}'. Must be 'add' or 'remove'."
     attr = "selected_style_ids" if selection_type == "style" else "selected_product_ids"
     ids = getattr(ctx.deps, attr)
+    log_tool_call("modify_plan_selection", {"selection_type": selection_type, "item_id": item_id, "action": action}, None)
     if action == "add":
         if item_id not in ids:
             ids.append(item_id)
@@ -197,7 +200,9 @@ def run_turn(user_message: str, history_json: list | None = None, plan_json: dic
     """
     history = ModelMessagesTypeAdapter.validate_python(history_json) if history_json else []
     plan_state = plan_from_dict(plan_json)
+    start_run(user_message)
     result = agent.run_sync(user_message, message_history=history, deps=plan_state)
+    end_run(result.output)
     usage = summarize_usage(result.usage)
     return {
         "reply": result.output,
