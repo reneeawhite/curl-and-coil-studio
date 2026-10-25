@@ -1,0 +1,16 @@
+<svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- tall backrest -->
+  <rect x="32" y="6" width="36" height="48" rx="10" fill="#F0713B"/>
+  <rect x="32" y="6" width="36" height="48" rx="10" fill="none" stroke="#D85A26" stroke-width="2"/>
+  <!-- seat cushion -->
+  <rect x="22" y="54" width="56" height="16" rx="6" fill="#D85A26"/>
+  <!-- armrests -->
+  <rect x="10" y="50" width="14" height="8" rx="4" fill="#A9682F"/>
+  <rect x="76" y="50" width="14" height="8" rx="4" fill="#A9682F"/>
+  <rect x="10" y="50" width="8" height="26" rx="3" fill="#A9682F"/>
+  <rect x="82" y="50" width="8" height="26" rx="3" fill="#A9682F"/>
+  <!-- pedestal -->
+  <rect x="46" y="70" width="8" height="28" fill="#231F1A"/>
+  <path d="M38 98 L62 98 L70 112 L30 112 Z" fill="#231F1A"/>
+  <ellipse cx="50" cy="114" rx="30" ry="6" fill="#F2B705"/>
+</svg>

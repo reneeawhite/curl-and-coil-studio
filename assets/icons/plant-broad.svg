@@ -1,0 +1,12 @@
+<svg viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+  <!-- pot -->
+  <path d="M32 98 L88 98 L80 136 L40 136 Z" fill="#F2A0B5"/>
+  <path d="M32 98 L88 98 L85 108 L35 108 Z" fill="#F6BBCB"/>
+  <rect x="28" y="92" width="64" height="10" rx="3" fill="#E07896"/>
+  <!-- broad banana-style leaves, layered -->
+  <path d="M60 100 C60 100 20 86 10 46 C10 46 46 42 60 78 C64 86 62 94 60 100 Z" fill="#245C1A"/>
+  <path d="M60 100 C60 100 100 84 112 44 C112 44 74 42 60 78 C56 86 58 94 60 100 Z" fill="#2D7A38"/>
+  <path d="M60 100 C58 70 58 36 62 4 C66 36 64 70 60 100 Z" fill="#3FA34D"/>
+  <path d="M60 100 C60 100 34 76 30 48 C30 48 52 54 60 82 Z" fill="#6CC97A"/>
+  <path d="M34 50 C34 50 48 56 58 76" stroke="#153A0E" stroke-width="2" fill="none" opacity="0.5"/>
+</svg>
