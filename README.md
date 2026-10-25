@@ -47,8 +47,11 @@ to pick up changes.
 
 ## Notes on the agent
 
-- One agent, three tools (`search_providers`, `search_products`, `search_care_guidance`),
-  per the project brief's "use one agent with focused tools" direction.
+- One agent, five tools, per the project brief's "use one agent with focused tools" direction:
+  `search_providers`, `search_products`, and `search_care_guidance` (read-only lookups over the
+  sourced CSVs), plus `update_plan` and `modify_plan_selection` (write the user's structured
+  choices and specific stylist/product picks into the shared plan store that the other three
+  pages read from).
 - Every fact the agent states must come from a tool call in that conversation - the system
   prompt forbids inventing prices, ratings, ingredients, or availability, and requires
   carrying forward each fact's `checked_at` date and source.
