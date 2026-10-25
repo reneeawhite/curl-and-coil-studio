@@ -100,10 +100,14 @@ def scene_deco():
     and hair tools) mounted on the cream wall band, plus floor plants - a real
     shelved salon room, not icons scattered on flat color."""
     children = []
-    children += _shelf("left", 10, 190, [("plant", 90, 4), ("hairbrush", 48, 108), ("frame", 50, 148)])
-    children += _shelf("left", 36, 170, [("comb", 44, 6), ("plant-broad", 80, 60), ("shampoo-bottle", 54, 128)])
-    children += _shelf("right", 14, 190, [("plant-broad", 94, 4), ("blow-dryer", 50, 108), ("frame", 50, 150)])
-    children += _shelf("right", 40, 170, [("shampoo-bottle", 54, 6), ("plant", 78, 70), ("comb", 44, 128)])
+    # Each shelf's width and item offsets are computed so the three items sit
+    # centered with even gaps between them and even margins at both shelf
+    # ends (10px margin, 8px gap) - previously the offsets were eyeballed and
+    # either overflowed past the shelf's right edge or overlapped each other.
+    children += _shelf("left", 10, 224, [("plant", 90, 10), ("hairbrush", 48, 108), ("frame", 50, 164)])
+    children += _shelf("left", 36, 214, [("comb", 44, 10), ("plant-broad", 80, 62), ("shampoo-bottle", 54, 150)])
+    children += _shelf("right", 14, 230, [("plant-broad", 94, 10), ("blow-dryer", 50, 112), ("frame", 50, 170)])
+    children += _shelf("right", 40, 212, [("shampoo-bottle", 54, 10), ("plant", 78, 72), ("comb", 44, 158)])
     # Flush to the viewport bottom (0, not a few px up) so the pot sits ON the
     # floor band instead of floating with a gap above the wall/floor seam.
     children.append(

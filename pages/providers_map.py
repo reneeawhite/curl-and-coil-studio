@@ -30,11 +30,13 @@ def _group_by_business(rows):
     return groups
 
 
-def _build_map_figure(service_filters: list, budget_filters: list):
+def _filtered_businesses(service_filters: list, budget_filters: list):
+    """Businesses with at least one service matching both active filters, each
+    as (business_name, representative_row) - shared by the map and the list
+    view so they always agree on what counts as "matching"."""
     rows = load_providers()
     groups = _group_by_business(rows)
-
-    lats, lons, names, ids = [], [], [], []
+    results = []
     for business_name, business_rows in groups.items():
         matching = [
             r
@@ -42,9 +44,72 @@ def _build_map_figure(service_filters: list, budget_filters: list):
             if (not service_filters or r["service_path"] in service_filters)
             and (not budget_filters or r["budget_tier"] in budget_filters)
         ]
-        if not matching:
-            continue
-        rep = matching[0]
+        if matching:
+            results.append((business_name, matching[0]))
+    return results
+
+
+def _clean_neighborhood(neighborhood: str) -> str:
+    """Drop the ", adjoining New Haven" aside used in the sourced data to flag
+    nearby-but-technically-different towns - useful context when the dataset
+    was being built, but unnecessary clutter once it's shown to a user."""
+    return neighborhood.split(", adjoining New Haven")[0]
+
+
+def _specialty_line(business_rows: list) -> str:
+    """A short factual one-liner for the list view, built only from data this
+    app actually has (styles offered + rating) - these are small independent
+    braiders with Booksy/Instagram-only presences, not a business website with
+    real "about us" copy to quote, so this stands in for a bio without
+    inventing one."""
+    styles = []
+    for path in SERVICE_LABELS:
+        if any(r["service_path"] == path for r in business_rows):
+            styles.append(SERVICE_LABELS[path])
+    first = business_rows[0]
+    bits = [" / ".join(styles)] if styles else []
+    if first["rating_platform"] and first["rating_platform"] != "not confirmed":
+        rating_bit = f"{first['rating_value']}★ on {first['rating_platform']}"
+        if first["review_count"]:
+            rating_bit += f" ({first['review_count']} reviews)"
+        bits.append(rating_bit)
+    return " · ".join(bits)
+
+
+def _business_list(service_filters: list, budget_filters: list, selected_business: str | None):
+    rows = load_providers()
+    groups = _group_by_business(rows)
+    businesses = _filtered_businesses(service_filters, budget_filters)
+    if not businesses:
+        return html.P("No stylists match these filters.", className="empty-state")
+    items = []
+    for business_name, rep in sorted(businesses, key=lambda b: b[0]):
+        is_selected = business_name == selected_business
+        items.append(
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Span(business_name, className="provider-list-name"),
+                            html.Span(_clean_neighborhood(rep["neighborhood"]), className="provider-list-neighborhood"),
+                        ],
+                        className="provider-list-row",
+                    ),
+                    html.Div(_specialty_line(groups[business_name]), className="provider-list-specialty"),
+                ],
+                id={"type": "business-list-item", "index": business_name},
+                n_clicks=0,
+                className="provider-list-item" + (" selected" if is_selected else ""),
+            )
+        )
+    return html.Div(items, className="provider-list")
+
+
+def _build_map_figure(service_filters: list, budget_filters: list):
+    businesses = _filtered_businesses(service_filters, budget_filters)
+
+    lats, lons, names, ids = [], [], [], []
+    for business_name, rep in businesses:
         lats.append(rep["lat"])
         lons.append(rep["lon"])
         names.append(business_name)
@@ -181,11 +246,12 @@ def _detail_panel(business_name: str | None, plan: dict | None):
             )
         )
 
+    clean_neighborhood = _clean_neighborhood(first["neighborhood"])
     return html.Div(
         children=[
             html.H3(business_name, className="detail-title"),
             html.P(
-                " · ".join([first["neighborhood"], *rating_bits]) if rating_bits else first["neighborhood"],
+                " · ".join([clean_neighborhood, *rating_bits]) if rating_bits else clean_neighborhood,
                 className="detail-sub",
             ),
             *style_sections,
@@ -221,6 +287,8 @@ layout = html.Div(
                     ],
                 ),
                 dcc.Graph(id="provider-map", config={"displayModeBar": False}),
+                html.P("Or pick a stylist by name:", className="product-hint"),
+                html.Div(id="provider-list-container", children=_business_list([], [], None)),
                 html.Div(id="provider-detail-panel", className="detail-panel", children=_detail_panel(None, None)),
                 dcc.Store(id="displayed-business-name", data=None),
             ],
@@ -239,18 +307,42 @@ def _update_map(service_filters, budget_filters):
 
 
 @callback(
-    Output("provider-detail-panel", "children"),
+    Output("provider-list-container", "children"),
+    Input("map-service-filter", "value"),
+    Input("map-budget-filter", "value"),
+    Input("displayed-business-name", "data"),
+)
+def _update_list(service_filters, budget_filters, displayed_business):
+    return _business_list(service_filters, budget_filters, displayed_business)
+
+
+@callback(
     Output("displayed-business-name", "data"),
     Input("provider-map", "clickData"),
-    Input("user-plan", "data"),
+    Input({"type": "business-list-item", "index": ALL}, "n_clicks"),
     State("displayed-business-name", "data"),
+    prevent_initial_call=True,
 )
-def _update_detail(click_data, plan, displayed_business):
-    if ctx.triggered_id == "provider-map" and click_data:
-        business_name = click_data["points"][0]["customdata"]
-    else:
-        business_name = displayed_business
-    return _detail_panel(business_name, plan), business_name
+def _select_business(click_data, _list_clicks, displayed_business):
+    if ctx.triggered_id == "provider-map":
+        if click_data:
+            return click_data["points"][0]["customdata"]
+        return dash.no_update
+    # A business-list-item was clicked - ctx.triggered_id is the pattern-matching
+    # dict {"type": "business-list-item", "index": business_name}.
+    triggered_value = ctx.triggered[0]["value"] if ctx.triggered else None
+    if not triggered_value:
+        return dash.no_update
+    return ctx.triggered_id["index"]
+
+
+@callback(
+    Output("provider-detail-panel", "children"),
+    Input("displayed-business-name", "data"),
+    Input("user-plan", "data"),
+)
+def _update_detail(displayed_business, plan):
+    return _detail_panel(displayed_business, plan)
 
 
 @callback(
