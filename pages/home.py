@@ -26,6 +26,23 @@ SERVICE_LABELS = {
 }
 FALLBACK_PRODUCT_ICON = "shampoo-bottle"
 
+# A safety ceiling on real model spend per browser session - nothing else in this
+# app currently stops a bug or a script sending rapid-fire messages from running
+# up real cost (see HARNESS.md / the final report's Safety section). $0.25 is
+# roughly 35-40x a single typical planning conversation (~$0.0066), generous for
+# real use but not unbounded.
+SESSION_COST_CAP_USD = 0.25
+SESSION_CAP_MESSAGE = (
+    f"This browser session has reached its ${SESSION_COST_CAP_USD:.2f} safety budget for model "
+    "calls, so I can't send this one to the planner. Refresh the page to start a fresh session "
+    "(your plan stays saved), or come back later - this cap exists to stop a bug or a runaway "
+    "script from burning through real cost unnoticed."
+)
+
+
+def _session_cap_reached(usage_total: dict) -> bool:
+    return usage_total.get("cost_usd", 0.0) >= SESSION_COST_CAP_USD
+
 
 def _plan_summary_panel(plan: dict | None):
     """The full "your plan so far" view, shown on the home page per the project
@@ -153,7 +170,7 @@ layout = html.Div(
         html.Div(
             className="salon-header",
             children=[
-                html.H1("Curl & Coil Studio", className="salon-title"),
+                html.H1("Restful Roots", className="salon-title"),
                 html.P(
                     "New Haven braid & protective-style planner - sourced stylists, care plans, and products",
                     className="salon-subtitle",
@@ -221,7 +238,7 @@ layout = html.Div(
     Output("usage-total", "data"),
     Output("user-input", "value"),
     Output("usage-footer", "children"),
-    Output("user-plan", "data"),
+    Output("user-plan", "data", allow_duplicate=True),
     Input("send-btn", "n_clicks"),
     Input("user-input", "n_submit"),
     State("user-input", "value"),
@@ -249,21 +266,24 @@ def send_message(_n_clicks, _n_submit, user_text, agent_history, display_message
 
     display_messages = display_messages + [{"role": "user", "text": user_text}]
 
-    try:
-        result = run_turn(user_text, agent_history, plan)
-        reply = result["reply"]
-        agent_history = result["history"]
-        plan = result["plan"]
-        usage_total = {
-            "input_tokens": usage_total["input_tokens"] + result["input_tokens"],
-            "output_tokens": usage_total["output_tokens"] + result["output_tokens"],
-            "cost_usd": round(usage_total["cost_usd"] + result["cost_usd"], 6),
-        }
-    except Exception as exc:  # keep the chat alive even if the model/tool call fails
-        reply = (
-            "Sorry, something went wrong reaching the planner (" + str(exc) + "). "
-            "Check that PORTKEY_API_KEY is set and try again."
-        )
+    if _session_cap_reached(usage_total):
+        reply = SESSION_CAP_MESSAGE
+    else:
+        try:
+            result = run_turn(user_text, agent_history, plan)
+            reply = result["reply"]
+            agent_history = result["history"]
+            plan = result["plan"]
+            usage_total = {
+                "input_tokens": usage_total["input_tokens"] + result["input_tokens"],
+                "output_tokens": usage_total["output_tokens"] + result["output_tokens"],
+                "cost_usd": round(usage_total["cost_usd"] + result["cost_usd"], 6),
+            }
+        except Exception as exc:  # keep the chat alive even if the model/tool call fails
+            reply = (
+                "Sorry, something went wrong reaching the planner (" + str(exc) + "). "
+                "Check that PORTKEY_API_KEY is set and try again."
+            )
 
     display_messages = display_messages + [{"role": "agent", "text": reply}]
 

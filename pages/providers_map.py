@@ -9,7 +9,7 @@ import dash
 from dash import ALL, Input, Output, State, callback, ctx, dcc, html
 
 from components import icon
-from data.load_data import load_providers, price_display, wash_blowdry_badges
+from data.load_data import is_stale, load_providers, price_display, wash_blowdry_badges
 
 dash.register_page(__name__, path="/providers", name="Find a Stylist")
 
@@ -76,9 +76,42 @@ def _specialty_line(business_rows: list) -> str:
     return " · ".join(bits)
 
 
-def _business_list(service_filters: list, budget_filters: list, selected_business: str | None):
+def _business_list(
+    service_filters: list,
+    budget_filters: list,
+    selected_business: str | None,
+    list_expanded: bool = True,
+):
     rows = load_providers()
     groups = _group_by_business(rows)
+
+    # Once a stylist is picked, collapse the list to a single line naming them -
+    # the detail panel below is the focus now, not a long list competing for
+    # attention. "Browse all stylists" brings the full list back without losing
+    # the current selection/detail panel.
+    if selected_business and not list_expanded:
+        rep_rows = groups.get(selected_business, [])
+        info_children = [html.Span(selected_business, className="provider-list-collapsed-name")]
+        if rep_rows:
+            neighborhood = _clean_neighborhood(rep_rows[0]["neighborhood"])
+            if neighborhood:
+                info_children.append(html.Span(f" · {neighborhood}", className="provider-list-collapsed-neighborhood"))
+        return html.Div(
+            className="provider-list-collapsed",
+            children=[
+                html.Div(
+                    [html.Span("Viewing: ", className="provider-list-collapsed-label"), *info_children],
+                    className="provider-list-collapsed-info",
+                ),
+                html.Button(
+                    "Browse all stylists",
+                    id={"type": "browse-all-stylists-btn", "index": "browse"},
+                    n_clicks=0,
+                    className="provider-list-browse-btn",
+                ),
+            ],
+        )
+
     businesses = _filtered_businesses(service_filters, budget_filters)
     if not businesses:
         return html.P("No stylists match these filters.", className="empty-state")
@@ -105,15 +138,18 @@ def _business_list(service_filters: list, budget_filters: list, selected_busines
     return html.Div(items, className="provider-list")
 
 
-def _build_map_figure(service_filters: list, budget_filters: list):
+def _build_map_figure(service_filters: list, budget_filters: list, selected_business: str | None = None):
     businesses = _filtered_businesses(service_filters, budget_filters)
 
-    lats, lons, names, ids = [], [], [], []
+    lats, lons, names, ids, colors, sizes = [], [], [], [], [], []
     for business_name, rep in businesses:
         lats.append(rep["lat"])
         lons.append(rep["lon"])
         names.append(business_name)
         ids.append(business_name)
+        is_selected = business_name == selected_business
+        colors.append("#0D9488" if is_selected else "#D85A26")
+        sizes.append(28 if is_selected else 20)
 
     # Built as a plain dict, not go.Figure(go.Scattermap(...)): the installed Python
     # plotly (7.x) only emits the newer "scattermap" trace type, but the Plotly.js
@@ -128,7 +164,7 @@ def _build_map_figure(service_filters: list, budget_filters: list):
                 "lat": lats,
                 "lon": lons,
                 "mode": "markers",
-                "marker": {"size": 20, "color": "#D85A26"},
+                "marker": {"size": sizes, "color": colors},
                 "text": names,
                 "customdata": ids,
             }
@@ -227,19 +263,28 @@ def _detail_panel(business_name: str | None, plan: dict | None):
                 )
             )
         group_tier = style_rows[0]["budget_tier"]
+        group_checked = style_rows[0]["checked_at"]
+        header_children = [
+            html.Span(SERVICE_LABELS[service_path], className="provider-style-group-title"),
+            html.Div(
+                BUDGET_LABELS.get(group_tier, group_tier),
+                className=f"product-budget-badge product-budget-{group_tier}",
+            ),
+        ]
+        if group_checked:
+            header_children.append(html.Span(f"Checked {group_checked}", className="provider-style-group-checked"))
         style_sections.append(
             html.Div(
                 className="provider-style-group",
                 children=[
-                    html.Div(
-                        className="provider-style-group-header",
-                        children=[
-                            html.Span(SERVICE_LABELS[service_path], className="provider-style-group-title"),
-                            html.Div(
-                                BUDGET_LABELS.get(group_tier, group_tier),
-                                className=f"product-budget-badge product-budget-{group_tier}",
-                            ),
-                        ],
+                    html.Div(className="provider-style-group-header", children=header_children),
+                    *(
+                        [html.Div(
+                            f"⚠ Past this app's 90-day re-check window ({group_checked}) — verify current price/availability with the provider.",
+                            className="provider-service-stale",
+                        )]
+                        if is_stale(group_checked)
+                        else []
                     ),
                     html.Div(cards, className="provider-service-list"),
                 ],
@@ -247,6 +292,11 @@ def _detail_panel(business_name: str | None, plan: dict | None):
         )
 
     clean_neighborhood = _clean_neighborhood(first["neighborhood"])
+    portfolio_links = []
+    if first.get("instagram_url", "").startswith("http"):
+        portfolio_links.append(html.A("Instagram", href=first["instagram_url"], target="_blank", className="provider-portfolio-link"))
+    if first.get("website_url", "").startswith("http"):
+        portfolio_links.append(html.A("Website", href=first["website_url"], target="_blank", className="provider-portfolio-link"))
     return html.Div(
         children=[
             html.H3(business_name, className="detail-title"),
@@ -254,6 +304,7 @@ def _detail_panel(business_name: str | None, plan: dict | None):
                 " · ".join([clean_neighborhood, *rating_bits]) if rating_bits else clean_neighborhood,
                 className="detail-sub",
             ),
+            *([html.Div(portfolio_links, className="provider-portfolio-row")] if portfolio_links else []),
             *style_sections,
         ]
     )
@@ -286,11 +337,18 @@ layout = html.Div(
                         ),
                     ],
                 ),
+                html.P(
+                    "Low/Mid/High budget is computed per style from this dataset's own prices - a business "
+                    "can be “Low” for braids and “High” for locs at the same time, since each "
+                    "style's tier is ranked only against other businesses offering that same style.",
+                    className="product-hint",
+                ),
                 dcc.Graph(id="provider-map", config={"displayModeBar": False}),
                 html.P("Or pick a stylist by name:", className="product-hint"),
                 html.Div(id="provider-list-container", children=_business_list([], [], None)),
                 html.Div(id="provider-detail-panel", className="detail-panel", children=_detail_panel(None, None)),
                 dcc.Store(id="displayed-business-name", data=None),
+                dcc.Store(id="list-expanded", data=True),
             ],
         )
     ],
@@ -301,9 +359,10 @@ layout = html.Div(
     Output("provider-map", "figure"),
     Input("map-service-filter", "value"),
     Input("map-budget-filter", "value"),
+    Input("displayed-business-name", "data"),
 )
-def _update_map(service_filters, budget_filters):
-    return _build_map_figure(service_filters, budget_filters)
+def _update_map(service_filters, budget_filters, selected_business):
+    return _build_map_figure(service_filters, budget_filters, selected_business)
 
 
 @callback(
@@ -311,29 +370,37 @@ def _update_map(service_filters, budget_filters):
     Input("map-service-filter", "value"),
     Input("map-budget-filter", "value"),
     Input("displayed-business-name", "data"),
+    Input("list-expanded", "data"),
 )
-def _update_list(service_filters, budget_filters, displayed_business):
-    return _business_list(service_filters, budget_filters, displayed_business)
+def _update_list(service_filters, budget_filters, displayed_business, list_expanded):
+    return _business_list(service_filters, budget_filters, displayed_business, list_expanded)
 
 
 @callback(
     Output("displayed-business-name", "data"),
+    Output("list-expanded", "data"),
     Input("provider-map", "clickData"),
     Input({"type": "business-list-item", "index": ALL}, "n_clicks"),
+    Input({"type": "browse-all-stylists-btn", "index": ALL}, "n_clicks"),
     State("displayed-business-name", "data"),
     prevent_initial_call=True,
 )
-def _select_business(click_data, _list_clicks, displayed_business):
+def _select_business(click_data, _list_clicks, _browse_clicks, displayed_business):
+    # Picking "Browse all stylists" re-expands the list without touching the
+    # current selection, so the detail panel stays open while the user compares.
+    triggered_id = ctx.triggered_id
+    if isinstance(triggered_id, dict) and triggered_id.get("type") == "browse-all-stylists-btn":
+        return dash.no_update, True
     if ctx.triggered_id == "provider-map":
         if click_data:
-            return click_data["points"][0]["customdata"]
-        return dash.no_update
+            return click_data["points"][0]["customdata"], False
+        return dash.no_update, dash.no_update
     # A business-list-item was clicked - ctx.triggered_id is the pattern-matching
     # dict {"type": "business-list-item", "index": business_name}.
     triggered_value = ctx.triggered[0]["value"] if ctx.triggered else None
     if not triggered_value:
-        return dash.no_update
-    return ctx.triggered_id["index"]
+        return dash.no_update, dash.no_update
+    return ctx.triggered_id["index"], False
 
 
 @callback(

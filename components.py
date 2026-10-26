@@ -63,7 +63,11 @@ def plan_summary_chip(plan: dict | None):
     if not parts:
         return html.Div()
     return html.Div(
-        [html.Span("Your plan so far:", className="plan-chip-label"), *parts],
+        [
+            html.Span("Your plan so far:", className="plan-chip-label"),
+            *parts,
+            html.Button("Clear my plan", id="clear-plan-btn", n_clicks=0, className="plan-chip-clear-btn"),
+        ],
         className="plan-chip-row",
     )
 

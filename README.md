@@ -1,4 +1,4 @@
-# Curl & Coil Studio
+# Restful Roots
 
 A New Haven-area planner for people with type 3B-4C curly or coily hair choosing between
 box/knotless braids and protective natural hairstyles (twists, twist-outs, plaits, locs). One

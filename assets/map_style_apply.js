@@ -7,7 +7,7 @@
 // filter change, since each one hands the graph a brand-new figure that resets
 // back to the rejected default.
 (function () {
-  var STYLE_NAME = "Curl & Coil Studio (recolored CARTO Positron)";
+  var STYLE_NAME = "Restful Roots (recolored CARTO Positron)";
   var styleObjPromise = null;
 
   function getStyleObj() {

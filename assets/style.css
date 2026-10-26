@@ -1,4 +1,4 @@
-/* Curl & Coil Studio - warm, editorial-illustration salon theme.
+/* Restful Roots - warm, editorial-illustration salon theme.
    Palette and mood reference: Toca Boca Hair Salon (wood, teal, terracotta,
    mustard, rich saturated plant greens against a warm room) - vivid, not
    dusty/muted, and not candy-pastel or cartoon-bubble UI. All iconography is
@@ -191,6 +191,21 @@ body::after {
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 999px;
+}
+
+.plan-chip-clear-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 3px 4px;
+}
+
+.plan-chip-clear-btn:hover {
+  color: var(--terracotta-dark);
 }
 
 /* ---------- Header ---------- */
@@ -599,6 +614,51 @@ body::after {
   color: var(--ink-soft);
 }
 
+.provider-list-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(13, 148, 136, 0.06);
+  border: 2px solid var(--teal);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+}
+
+.provider-list-collapsed-label {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.provider-list-collapsed-name {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.provider-list-collapsed-neighborhood {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.provider-list-browse-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--teal);
+  color: var(--teal-dark);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.provider-list-browse-btn:hover {
+  background: rgba(13, 148, 136, 0.1);
+}
+
 .detail-title {
   font-family: 'Poppins', sans-serif;
   font-size: 19px;
@@ -628,6 +688,25 @@ body::after {
   font-size: 14.5px;
   font-weight: 700;
   color: var(--ink);
+}
+
+.provider-style-group-checked {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-left: auto;
+}
+
+.provider-portfolio-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.provider-portfolio-link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--teal-dark);
+  text-decoration: underline;
 }
 
 .provider-service-list {
@@ -848,6 +927,22 @@ body::after {
   font-style: italic;
   color: var(--ink-soft);
   line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.product-detail-checked {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
+
+.product-detail-stale,
+.provider-service-stale {
+  font-size: 12px;
+  color: var(--terracotta-dark);
+  background: rgba(240, 113, 59, 0.1);
+  border-radius: 6px;
+  padding: 6px 10px;
   margin: 0 0 12px;
 }
 

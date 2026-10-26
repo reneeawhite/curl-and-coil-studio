@@ -11,7 +11,7 @@ import dash
 from dash import ALL, Input, Output, State, callback, ctx, dcc, html
 
 from components import icon
-from data.load_data import load_products, product_service_paths
+from data.load_data import is_stale, load_products, product_service_paths
 
 dash.register_page(__name__, path="/products", name="Shop Products")
 
@@ -81,9 +81,26 @@ def _product_card(p, selected_id):
     )
 
 
+def _checked_line(checked_at):
+    """A plain checked-date line, or a visible re-check flag once that date is
+    more than data.load_data.STALE_AFTER_DAYS old - this app's prices and
+    claims are a dated snapshot, not a live feed (see scripts/
+    check_data_freshness.py), so an old date should look different from a
+    fresh one instead of reading the same either way."""
+    if not checked_at:
+        return None
+    if is_stale(checked_at):
+        return html.P(
+            f"⚠ Checked {checked_at} — this is past this app's {90}-day re-check window; verify on the official page before trusting it.",
+            className="product-detail-stale",
+        )
+    return html.P(f"Checked {checked_at}", className="product-detail-checked")
+
+
 def _detail_inline(p, plan):
     in_plan = p["product_id"] in (plan or {}).get("selected_product_ids", [])
     link = p["official_product_url"] if p["official_product_url"].startswith("http") else p["other_source_url"]
+    checked_line = _checked_line(p.get("checked_at"))
     return html.Div(
         className="product-detail-inline",
         children=[
@@ -92,6 +109,7 @@ def _detail_inline(p, plan):
             html.P(p["target_need"], className="product-detail-need"),
             html.P(p["usage_notes"], className="product-detail-usage"),
             html.P(p["source_supported_claim"], className="product-detail-source"),
+            *([checked_line] if checked_line else []),
             html.A(
                 "View product page",
                 href=link if link and link.startswith("http") else "#",

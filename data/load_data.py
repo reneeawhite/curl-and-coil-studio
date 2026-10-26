@@ -3,9 +3,14 @@
 Run directly (`python data/load_data.py`) to sanity-check the files load cleanly.
 """
 import csv
+from datetime import date
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent
+
+# How long a sourced fact (price, rating, product claim) is trusted before the
+# UI flags it for a re-check instead of silently treating it as still current.
+STALE_AFTER_DAYS = 90
 
 # Values that mean "we don't have this fact" across the CSVs - never coerce these to 0 or "".
 _UNKNOWN_VALUES = {"", "not confirmed", "not available", "not yet rated", "not specified"}
@@ -99,6 +104,24 @@ def wash_blowdry_badges(provider_row):
     if blowdry and blowdry not in _UNKNOWN_VALUES and "blow" not in service_name:
         badges.append("Blow-dry included" if blowdry.startswith("included") else f"Blow-dry: {blowdry}")
     return badges
+
+
+def is_stale(checked_at, today=None):
+    """True once a row's checked_at date is more than STALE_AFTER_DAYS old.
+
+    Returns False (never flag) for a blank/unparseable date rather than
+    guessing - a row with no checked_at isn't "fresh," but it also isn't
+    something this check can evaluate.
+    """
+    checked_at = (checked_at or "").strip()
+    if not checked_at:
+        return False
+    try:
+        checked_date = date.fromisoformat(checked_at)
+    except ValueError:
+        return False
+    today = today or date.today()
+    return (today - checked_date).days > STALE_AFTER_DAYS
 
 
 if __name__ == "__main__":
